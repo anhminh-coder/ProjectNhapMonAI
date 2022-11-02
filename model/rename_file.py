@@ -1,3 +1,4 @@
+# đổi tên các file trong data mình tải về theo thứ tứ 1->n
 import os
 
 data_path = os.getcwd()+'/dataset'
