@@ -1,2 +1,1 @@
-# Project2
- Celebrities Classifier
+ # Celebrities Classifier
