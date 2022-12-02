@@ -1,9 +1,11 @@
 from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
 import numpy as np
 import cv2
 import os
 from PIL import Image
 import pickle
+from sklearn import decomposition
 
 face_cascade = cv2.CascadeClassifier(
     'cascades/data/haarcascade_frontalface_default.xml')
@@ -35,21 +37,27 @@ for name in os.listdir(data_path):  # duyet tung thu muc trong dataset
             size = (128, 128)
             # resize ảnh sau khi đã detect về cùng size
             roi_resized = cv2.resize(roi, size)
-            X_train.append(roi_resized)  # thêm ảnh vào X_train
-            y_train.append(id_)  # thêm label của ảnh vào y_train
+            roi_resized = cv2.cvtColor(roi_resized, cv2.COLOR_RGB2GRAY)
+            X_train.append(np.array(roi_resized).flatten())  # thêm ảnh vào X_train
+            y_train.append(np.array(id_))  # thêm label của ảnh vào y_train
 
     id_ += 1
+
+X_train = np.array(X_train)
+y_train = np.array(y_train)
+
+pca = decomposition.PCA(n_components=100)
+pca.fit(X_train)
+X_train = pca.transform(X_train)
+
 
 # lưu dictionary labels bằng pickle
 with open('labels.pickle', 'wb') as f:
     pickle.dump(label_ids, f)
+with open("pca.pickle", "wb") as f:
+    pickle.dump(pca, f)
 
-
-X_train = np.array(X_train).reshape(138, -1)  # trải phẳng ảnh ra
-y_train = np.array(y_train)
-
-
-model = LogisticRegression(max_iter=1000)  # softmax regression
+model = KNeighborsClassifier(n_neighbors=9, metric='minkowski')  # softmax regression
 model.fit(X_train, y_train)
 
 # lưu model
