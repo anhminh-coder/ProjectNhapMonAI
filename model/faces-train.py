@@ -46,7 +46,7 @@ for name in os.listdir(data_path):  # duyet tung thu muc trong dataset
 X_train = np.array(X_train)
 y_train = np.array(y_train)
 
-pca = decomposition.PCA(n_components=100)
+pca = decomposition.PCA(0.95)
 pca.fit(X_train)
 X_train = pca.transform(X_train)
 
@@ -57,7 +57,7 @@ with open('labels.pickle', 'wb') as f:
 with open("pca.pickle", "wb") as f:
     pickle.dump(pca, f)
 
-model = KNeighborsClassifier(n_neighbors=9, metric='minkowski')  # softmax regression
+model = KNeighborsClassifier(n_neighbors=10, weights='distance')  # softmax regression
 model.fit(X_train, y_train)
 
 # lưu model
