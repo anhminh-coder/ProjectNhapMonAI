@@ -8,6 +8,9 @@ from PIL import Image
 import pickle
 from sklearn import decomposition
 import pandas as pd
+from sklearn.preprocessing import MinMaxScaler
+import scipy.stats as stats
+
 
 face_cascade = cv2.CascadeClassifier(
     'cascades/data/haarcascade_frontalface_default.xml')
@@ -58,6 +61,11 @@ X_test = np.array(X_test)
 X_test = X_test.reshape(X_test.shape[0], -1)
 y_test = np.array(y_test)
 
+# MinMaxScaler
+scaler = MinMaxScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.fit_transform(X_test)
+
 # PCA
 pca = decomposition.PCA(0.95)
 pca.fit(np.concatenate((X_train, X_test), axis=0))
@@ -76,24 +84,61 @@ X_label_1 = df.loc[df.label == 1].iloc[:, :-1].values
 X_label_2 = df.loc[df.label == 2].iloc[:, :-1].values
 X_label_3 = df.loc[df.label == 3].iloc[:, :-1].values
 
+
 # Outlier detection
-def dectectOulier(X, z_score):
-    mean = X.mean(0)
-    std = X.std(0)
-    upper_limit = mean + z_score * std
-    lower_limit = mean - z_score * std
-    print(mean)
-    print(std)
+means = []
+stds = []
+def dectectOulier(X):
+    outlier_indexes = []
+    mean = np.mean(X, axis=0)
+    std = np.std(X, axis=0)
+    means.append(mean)
+    stds.append(std)
+    z_score = (X - mean) / std
+    for i in range(len(z_score)):
+        for x in z_score[i]:
+            if abs(x) >= 4:
+                outlier_indexes.append(i)
+                break
+    
+    cnt = 0
+    for index in outlier_indexes:
+        X = np.concatenate((X[:(index-cnt)],X[(index-cnt)+1 :]), axis=0)
+        cnt += 1
 
-dectectOulier(X_label_0, 3)
+    return X
 
+
+X_label_0 = dectectOulier(X_label_0)
+X_label_1 = dectectOulier(X_label_1)
+X_label_2 = dectectOulier(X_label_2)
+X_label_3 = dectectOulier(X_label_3)
+
+X_train = np.concatenate((X_label_0, X_label_1, X_label_2, X_label_3), axis=0)
+y_train = []
+tmp = [X_label_0, X_label_1, X_label_2, X_label_3]
+for i in range(len(tmp)):
+    for _ in range(len(tmp[i])):
+        y_train.append(i)
+
+y_train = np.array(y_train)
+
+
+mean_and_std = {}
+mean_and_std["means"] = means
+mean_and_std["stds"] = stds
+ 
 # lưu dictionary labels bằng pickle
 with open('labels.pickle', 'wb') as f:
     pickle.dump(label_ids, f)
-# with open("pca.pickle", "wb") as f:
-#     pickle.dump(pca, f)
 
-model = KNeighborsClassifier(n_neighbors=15, weights='distance')    
+with open("pca.pickle", "wb") as f:
+    pickle.dump(pca, f)
+
+with open("mean_and_std.pickle", "wb") as f:
+    pickle.dump(mean_and_std, f)
+
+model = KNeighborsClassifier(n_neighbors=5, weights='distance')    
 model.fit(X_train, y_train)
 y_predicted = model.predict(X_test)
 acc = accuracy_score(y_true=y_test, y_pred= y_predicted)
