@@ -5,13 +5,12 @@ import os
 import sys
 import pickle
 from sklearn import decomposition
-from sklearn.preprocessing import MinMaxScaler
 
 def dectectOulier(X, mean, std):
     z_score = (X - mean) / std
     for i in range(len(z_score)):
         for x in z_score[i]:
-            if abs(x) >= 4:
+            if abs(x) >= 3.5:
                 return True
     
     return False
@@ -26,7 +25,7 @@ def face_recognition(image_name):
 
     # Load mean and std
     with open('mean_and_std.pickle', 'rb') as f:
-        mean_and_std = pickle.load(f)  
+        mean_and_std = pickle.load(f) 
 
     # load dictionary labels
     labels = {}
@@ -48,18 +47,18 @@ def face_recognition(image_name):
         X_test = []
         X_test.append(roi_color_resized)
         X_test = np.array(X_test).reshape(1, -1)
-        
+        X_test = X_test / 255
         X_test = pca.transform(X_test)
-        scaler = MinMaxScaler()
-        X_test = scaler.fit_transform(X_test)
         means = mean_and_std['means']
         stds = mean_and_std['stds']
-        checkOulier = False
+        checkOulier = True
         for i in range(len(means)):
             mean = means[i]
             std = stds[i]
-            if dectectOulier(X_test, mean, std):
-                checkOulier = True
+            if dectectOulier(X_test, mean, std) == False:
+                checkOulier = False
+                break
+        
 
         font = cv2.FONT_HERSHEY_SIMPLEX
         color = (255, 255, 255)
@@ -67,7 +66,7 @@ def face_recognition(image_name):
         if checkOulier == True:
             cv2.putText(img_test, "{}".format('undefined'), (x, y), font,
                     1, color, stroke, cv2.LINE_AA)
-
+        
         else:
             y_test = model.predict_proba(X_test)[0]  # dự đoán vs X_test
             max_prob = -1
@@ -82,6 +81,9 @@ def face_recognition(image_name):
             if max_prob > 0.5:
                 cv2.putText(img_test, "{}: {:.2f}".format(name, max_prob), (x, y), font,
                         1, color, stroke, cv2.LINE_AA)
+            else:
+                cv2.putText(img_test, "{}".format('undefined'), (x, y), font,
+                    1, color, stroke, cv2.LINE_AA)
             
         # Vẽ vùng khuôn mặt
         color = (255, 0, 0)
@@ -101,4 +103,4 @@ else:
     print('es')
 print('done')
 print(os.getcwd())
-face_recognition('4.jpg')
+face_recognition('15.jpg')

@@ -1,6 +1,5 @@
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import accuracy_score
 import numpy as np
 import cv2
 import os
@@ -8,72 +7,56 @@ from PIL import Image
 import pickle
 from sklearn import decomposition
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
 import scipy.stats as stats
-
 
 face_cascade = cv2.CascadeClassifier(
     'cascades/data/haarcascade_frontalface_default.xml')
 
 
+id_ = 0
 current_id = 0
 label_ids = {}  # các cặp tên người ứng vs id. vd: person_name:1
 X_train = []
 y_train = []
-X_test = []
-y_test = []
-size = (128, 128)
 
-# Tạo dữ liệu huấn luyện X_train, y_train
-train_path = os.getcwd()+'/dataset/preprocessed/train'
-for name in os.listdir(train_path):  # duyet tung thu muc trong dataset
-    img_folder_path = train_path + '/' + name
+# Detect khuôn mặt ra, tạo dữ liệu huấn luyện X_train, y_train
+data_path = os.getcwd()+'/dataset'
+for name in os.listdir(data_path):  # duyet tung thu muc trong dataset
+    img_folder_path = data_path + '/' + name
     if name not in label_ids:
         label_ids[name] = current_id  # first_person:0
         current_id += 1  # tăng id người sau lên 1
     # duyet cac file anh trong tung thu muc
     for img in os.listdir(img_folder_path):
         img_path = img_folder_path + '/' + img
-        img = cv2.imread(img_path) # doc anh
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)  
-        X_train.append(gray)
-        y_train.append(current_id - 1)
+        img = cv2.imread(img_path)  # doc anh
+        # chuyen anh thanh mau xam
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(
+            gray, scaleFactor=1.3, minNeighbors=5)
+        for x, y, w, h in faces:
+            roi = img[y:y+h, x:x+w]  # detect khuôn mặt
+            size = (128, 128)
+            # resize ảnh sau khi đã detect về cùng size
+            roi_resized = cv2.resize(roi, size)
+            roi_resized = cv2.cvtColor(roi_resized, cv2.COLOR_RGB2GRAY)
+            X_train.append(np.array(roi_resized).flatten())  # thêm ảnh vào X_train
+            y_train.append(np.array(id_))  # thêm label của ảnh vào y_train
+
+    id_ += 1
+
+
 
 X_train = np.array(X_train)
-X_train = X_train.reshape(X_train.shape[0], -1)
 y_train = np.array(y_train)
 
-# Tạo tập dữ liệu test X_test, y_test
-current_id = 0
-test_path = os.getcwd()+'/dataset/preprocessed/test'
-for name in os.listdir(test_path):
-    img_folder_path = test_path + '/' + name
-    for img in os.listdir(img_folder_path):
-        img_path = img_folder_path + '/' + img
-        img = cv2.imread(img_path)
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)  
-        X_test.append(gray)
-        y_test.append(current_id)
+X_train = X_train / 255
 
-    current_id += 1
-
-X_test = np.array(X_test)
-X_test = X_test.reshape(X_test.shape[0], -1)
-y_test = np.array(y_test)
-
-# MinMaxScaler
-scaler = MinMaxScaler()
-X_train = scaler.fit_transform(X_train)
-X_test = scaler.fit_transform(X_test)
-
-# PCA
+pca = decomposition.PCA(n_components=100)
 pca = decomposition.PCA(0.95)
-pca.fit(np.concatenate((X_train, X_test), axis=0))
+pca.fit(X_train)
 X_train = pca.transform(X_train)
-X_test = pca.transform(X_test)
 
-
-# Tao dataframe
 y_train = y_train.reshape((y_train.shape[0]), 1)
 data = np.concatenate((X_train, y_train), axis=1)
 df = pd.DataFrame(data=data)
@@ -123,28 +106,22 @@ for i in range(len(tmp)):
 
 y_train = np.array(y_train)
 
-
-mean_and_std = {}
-mean_and_std["means"] = means
-mean_and_std["stds"] = stds
- 
-# lưu dictionary labels bằng pickle
 with open('labels.pickle', 'wb') as f:
-    pickle.dump(label_ids, f)
+    pickle.dump(label_ids, f)    
 
 with open("pca.pickle", "wb") as f:
     pickle.dump(pca, f)
 
+mean_and_std = {}
+mean_and_std["means"] = means
+mean_and_std["stds"] = stds
+
 with open("mean_and_std.pickle", "wb") as f:
     pickle.dump(mean_and_std, f)
 
-model = KNeighborsClassifier(n_neighbors=5, weights='distance')    
+model = KNeighborsClassifier(n_neighbors=5, weights='distance')  # KNN
 model.fit(X_train, y_train)
-y_predicted = model.predict(X_test)
-acc = accuracy_score(y_true=y_test, y_pred= y_predicted)
-print("Accuracy Score: ", acc)
-
 
 # lưu model
-with open('model.pickle', 'wb') as f:
+with open('model.pickle', "wb") as f:
     pickle.dump(model, f)

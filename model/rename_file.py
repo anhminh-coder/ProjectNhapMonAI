@@ -1,7 +1,7 @@
 # đổi tên các file trong data mình tải về theo thứ tứ 1->n
 import os
 
-data_path = os.getcwd()+'/dataset'
+data_path = os.getcwd()+'/raw'
 for name in os.listdir(data_path):
     img_folder_path = data_path+'/'+name
     id_ = 1
