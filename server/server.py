@@ -32,7 +32,7 @@ def save_picture(form_picture):
 @app.route('/home', methods=['GET', 'POST'])
 def home():
     form = PictureForm()
-    image_file = url_for('static', filename='images/default.png')
+    image_file = url_for('static', filename='default.jpg')
     
     if form.validate_on_submit():
         if form.picture.data:
